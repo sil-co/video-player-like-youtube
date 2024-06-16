@@ -12,7 +12,7 @@
     <div class="all-wrapper">
         <div class="input-wrapper">
             <input type="text" id="videoPath" class="video-path" placeholder="Enter Video Path">
-            <button id="loadVideo" class="load-video" >Load Video</button>
+            <button id="loadVideo" class="load-video">Load Video</button>
             <button id="langToggle" class="lang-toggle">日本語</button>
         </div>
 
@@ -31,10 +31,15 @@
 
         let longPressTimer;
         let isEnglish = true;
+        let wasPlaying = false;
+        let isSpeedUp = false;
 
         // Press and hold to double speed | 長押しで2倍速 
         videoElement.addEventListener('mousedown', () => {
+            wasPlaying = !videoElement.paused; // Save the current playback state | 現在の再生状態を保存
+
             longPressTimer = setTimeout(() => {
+                isSpeedUp = true;
                 videoElement.playbackRate = 2.0;
                 speedIndicator.style.visibility = 'visible'; // Show x2 | x2を表示
             }, 500); // Long press time (500ms) | 長押し時間（500ms）
@@ -44,7 +49,16 @@
             clearTimeout(longPressTimer);
             videoElement.playbackRate = 1.0; // Return to normal speed | 通常の速度に戻す
             speedIndicator.style.visibility = 'hidden'; // Hide x2 | x2を非表示
+
+            if (wasPlaying && isSpeedUp) {
+                isSpeedUp = false;
+                setTimeout(() => {
+                    wasPlaying = !videoElement.paused;
+                    videoElement.play(); // Continue playing if it was playing before | 以前に再生していた場合は再生を続ける
+                }, 0);
+            }
         });
+
 
         // Keyboard Controls | キーボードコントロール
         document.addEventListener('keydown', (event) => {
@@ -77,11 +91,13 @@
             }
         });
 
+        // Language Toggle | 言語切り替え
         langToggleBtn.addEventListener('click', () => {
             isEnglish = !isEnglish;
             updateLanguage();
         });
 
+        // Update language | 言語を更新
         function updateLanguage() {
             if (isEnglish) {
                 videoPathInput.placeholder = 'Enter video path';
