@@ -34,26 +34,11 @@
         let wasPlaying = false;
         let isSpeedUp = false;
 
-        const oneMonth = 30 * 24 * 60 * 60 * 1000; // One month in milliseconds | 1ヶ月をミリ秒
-
-        // Encrypt function using CryptoJS
-        function encrypt(data, key) {
-            return CryptoJS.AES.encrypt(data, key).toString();
-        }
-
-        // Decrypt function using CryptoJS
-        function decrypt(data, key) {
-            const bytes = CryptoJS.AES.decrypt(data, key);
-            return bytes.toString(CryptoJS.enc.Utf8);
-        }
-
         // Save playback time to localStorage | 再生時間をlocalStorageに保存
         function savePlaybackTime() {
-            const currentTime = videoElement.currentTime;
             const videoSrc = videoElement.src;
             const savedData = {
-                time: currentTime,
-                timestamp: Date.now()
+                time: videoElement.currentTime,
             };
             localStorage.setItem(videoSrc, JSON.stringify(savedData));
         }
@@ -63,38 +48,34 @@
             const videoSrc = videoElement.src;
             const savedData = JSON.parse(localStorage.getItem(videoSrc));
 
-            if (savedData && Date.now() - savedData.timestamp < oneMonth) {
+            if (savedData) {
                 videoElement.currentTime = savedData.time;
-            } else if (savedData) {
-                localStorage.removeItem(videoSrc); // Remove outdated data
+            }
+        }
+
+        // Update language | 言語を更新
+        function updateLanguage() {
+            if (isEnglish) {
+                videoPathInput.placeholder = 'Enter video path';
+                loadVideoBtn.textContent = 'Load Video';
+                langToggleBtn.textContent = '日本語';
+                document.title = 'Custom Video Player';
             } else {
-                // item not found
-                savePlaybackTime();
+                videoPathInput.placeholder = 'ビデオのパスを入力';
+                loadVideoBtn.textContent = 'ビデオを読み込む';
+                langToggleBtn.textContent = 'English';
+                document.title = 'カスタムビデオプレーヤー';
             }
         }
 
-        // Cleanup playback times older than one month
-        function cleanupPlaybackTimes() {
-            const now = Date.now();
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                try {
-                    const savedData = JSON.parse(localStorage.getItem(key));
-                    if (savedData && now - savedData.timestamp >= oneMonth) {
-                        localStorage.removeItem(key);
-                    }
-                } catch (e) {
-                    // If there is an error parsing, just skip this item
-                    console.log(`Error parsing data for key ${key}:`, e);
-                }
+        // Play video from saved path | 保存されたパスからビデオを再生
+        function getVideoPath() {
+            const savedPath = localStorage.getItem('videoPath');
+            if (savedPath) {
+                videoElement.src = savedPath;
+                videoElement.load();
             }
         }
-
-        // Initial setup | 初期設定
-        window.addEventListener('load', () => {
-            loadPlaybackTime();
-            // cleanupPlaybackTimes();
-        });
 
         // Save playback time when the video is paused or ends | ビデオが一時停止または終了したときに再生時間を保存
         videoElement.addEventListener('pause', savePlaybackTime);
@@ -125,6 +106,58 @@
             }
         });
 
+        videoElement.addEventListener('error', () => {
+            const errorCode = videoElement.error.code;
+            let errorMessage;
+            switch (errorCode) {
+                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                    errorMessage = 'The video format is not supported.';
+                    break;
+                case MediaError.MEDIA_ERR_ABORTED:
+                    errorMessage = 'The video load was aborted.';
+                    break;
+                case MediaError.MEDIA_ERR_NETWORK:
+                    errorMessage = 'A network error occurred while loading the video.';
+                    break;
+                case MediaError.MEDIA_ERR_DECODE:
+                    errorMessage = 'There was an error decoding the video.';
+                    break;
+                default:
+                    errorMessage = `An unknown error occurred (${errorCode})`;
+            }
+
+            console.log('Error loading video:', errorMessage);
+        });
+
+        videoElement.addEventListener('timeupdate', () => {
+            savePlaybackTime();
+        });
+
+        // Ability to set video path and load | ビデオのパスを設定して読み込む機能
+        loadVideoBtn.addEventListener('click', () => {
+            let path = videoPathInput.value;
+            path = path.replace(/['"]/g, ''); // Remove " and ' | "や'を取り除く
+            if (path) {
+                videoElement.src = path;
+                videoElement.load();
+
+                videoElement.addEventListener('loadeddata', () => {
+                    // LocalStorageに既に保存されているパスを削除
+                    localStorage.removeItem('videoPath');
+                    // Save path to LocalStorage | LocalStorageにパスを保存
+                    localStorage.setItem('videoPath', path);
+                    videoElement.play();
+                    loadPlaybackTime();
+                });
+            }
+        });
+
+        // Language Toggle | 言語切り替え
+        langToggleBtn.addEventListener('click', () => {
+            isEnglish = !isEnglish;
+            updateLanguage();
+        });
+
         // Keyboard Controls | キーボードコントロール
         document.addEventListener('keydown', (event) => {
             switch (event.key) {
@@ -145,38 +178,12 @@
             }
         });
 
-        // Ability to set video path and load | ビデオのパスを設定して読み込む機能
-        loadVideoBtn.addEventListener('click', () => {
-            let path = videoPathInput.value;
-            path = path.replace(/['"]/g, ''); // Remove " and ' | "や'を取り除く
-            if (path) {
-                videoElement.src = path;
-                videoElement.load();
-                videoElement.play();
-                loadPlaybackTime();
-            }
+        // Initial setup | 初期設定
+        window.addEventListener('load', () => {
+            getVideoPath();
+            loadPlaybackTime();
         });
 
-        // Language Toggle | 言語切り替え
-        langToggleBtn.addEventListener('click', () => {
-            isEnglish = !isEnglish;
-            updateLanguage();
-        });
-
-        // Update language | 言語を更新
-        function updateLanguage() {
-            if (isEnglish) {
-                videoPathInput.placeholder = 'Enter video path';
-                loadVideoBtn.textContent = 'Load Video';
-                langToggleBtn.textContent = '日本語';
-                document.title = 'Custom Video Player';
-            } else {
-                videoPathInput.placeholder = 'ビデオのパスを入力';
-                loadVideoBtn.textContent = 'ビデオを読み込む';
-                langToggleBtn.textContent = 'English';
-                document.title = 'カスタムビデオプレーヤー';
-            }
-        }
     </script>
 
 </body>
