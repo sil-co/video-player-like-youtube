@@ -18,7 +18,7 @@
 
         <div class="video-wrapper">
             <div id="speedIndicator" class="speed-indicator">x2</div>
-            <video id="videoElement" class="video-element" src="your_video_path.mp4" controls></video>
+            <video id="videoElement" class="video-element" src="your_vide_path.mp4" controls></video>
         </div>
     </div>
 
@@ -33,6 +33,72 @@
         let isEnglish = true;
         let wasPlaying = false;
         let isSpeedUp = false;
+
+        const oneMonth = 30 * 24 * 60 * 60 * 1000; // One month in milliseconds | 1ヶ月をミリ秒
+
+        // Encrypt function using CryptoJS
+        function encrypt(data, key) {
+            return CryptoJS.AES.encrypt(data, key).toString();
+        }
+
+        // Decrypt function using CryptoJS
+        function decrypt(data, key) {
+            const bytes = CryptoJS.AES.decrypt(data, key);
+            return bytes.toString(CryptoJS.enc.Utf8);
+        }
+
+        // Save playback time to localStorage | 再生時間をlocalStorageに保存
+        function savePlaybackTime() {
+            const currentTime = videoElement.currentTime;
+            const videoSrc = videoElement.src;
+            const savedData = {
+                time: currentTime,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(videoSrc, JSON.stringify(savedData));
+        }
+
+        // Load playback time from localStorage | localStorageから再生時間を読み込む
+        function loadPlaybackTime() {
+            const videoSrc = videoElement.src;
+            const savedData = JSON.parse(localStorage.getItem(videoSrc));
+
+            if (savedData && Date.now() - savedData.timestamp < oneMonth) {
+                videoElement.currentTime = savedData.time;
+            } else if (savedData) {
+                localStorage.removeItem(videoSrc); // Remove outdated data
+            } else {
+                // item not found
+                savePlaybackTime();
+            }
+        }
+
+        // Cleanup playback times older than one month
+        function cleanupPlaybackTimes() {
+            const now = Date.now();
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                try {
+                    const savedData = JSON.parse(localStorage.getItem(key));
+                    if (savedData && now - savedData.timestamp >= oneMonth) {
+                        localStorage.removeItem(key);
+                    }
+                } catch (e) {
+                    // If there is an error parsing, just skip this item
+                    console.log(`Error parsing data for key ${key}:`, e);
+                }
+            }
+        }
+
+        // Initial setup | 初期設定
+        window.addEventListener('load', () => {
+            loadPlaybackTime();
+            // cleanupPlaybackTimes();
+        });
+
+        // Save playback time when the video is paused or ends | ビデオが一時停止または終了したときに再生時間を保存
+        videoElement.addEventListener('pause', savePlaybackTime);
+        videoElement.addEventListener('ended', savePlaybackTime);
 
         // Press and hold to double speed | 長押しで2倍速 
         videoElement.addEventListener('mousedown', () => {
@@ -58,7 +124,6 @@
                 }, 0);
             }
         });
-
 
         // Keyboard Controls | キーボードコントロール
         document.addEventListener('keydown', (event) => {
@@ -88,6 +153,7 @@
                 videoElement.src = path;
                 videoElement.load();
                 videoElement.play();
+                loadPlaybackTime();
             }
         });
 
