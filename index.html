@@ -77,9 +77,23 @@
             }
         }
 
+        // Save video path to localStorage | ビデオのパスをlocalStorageに保存
+        function saveVideoPath() {
+            const videoSrc = videoElement.src;
+            if (!localStorage.getItem('videoPath')) {
+                localStorage.setItem('videoPath', videoSrc);
+            }
+        }
+
+        // Save data when the video is paused or ends | ビデオが一時停止または終了したときにデータを保存
+        function saveData() {
+            saveVideoPath();
+            savePlaybackTime();
+        }
+
         // Save playback time when the video is paused or ends | ビデオが一時停止または終了したときに再生時間を保存
-        videoElement.addEventListener('pause', savePlaybackTime);
-        videoElement.addEventListener('ended', savePlaybackTime);
+        videoElement.addEventListener('pause', saveData);
+        videoElement.addEventListener('ended', saveData);
 
         // Press and hold to double speed | 長押しで2倍速 
         videoElement.addEventListener('mousedown', () => {
